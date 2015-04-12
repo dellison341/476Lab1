@@ -1,0 +1,22 @@
+# List all .h files here
+set(HEADERS
+   GLIncludes.h
+)
+
+# List all .c / .cpp files here
+set(SOURCES
+   main.cpp
+   GLSL.cpp
+   tiny_obj_loader.cc
+   RenderingHelper.cpp
+
+   shaders/frag.glsl
+   shaders/vert.glsl
+)
+
+# List resources to copy to build directory
+set(RESOURCES
+   "shaders"
+   "models"
+   "textures"
+)
