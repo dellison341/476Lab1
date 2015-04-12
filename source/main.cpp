@@ -17,6 +17,8 @@
 #include "glm/gtc/matrix_transform.hpp" //perspective, trans etc
 #include "glm/gtc/type_ptr.hpp" //value_ptr
 
+#include <unistd.h>
+
 #define NUM_BUNNIES 10
 #define NUM_ROBOTS 1
 
@@ -759,6 +761,11 @@ int main(int argc, char **argv)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    char cCurrentPath[FILENAME_MAX];
+    getcwd(cCurrentPath, sizeof(cCurrentPath));
+    printf("Working directory: %s\n", cCurrentPath);
+    
 	loadShapes("models/bunny.obj");
 //	loadrobot("sphere.obj");
 	loadRobot("models/cube.obj");
