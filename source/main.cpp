@@ -17,9 +17,12 @@
 #include "glm/gtc/matrix_transform.hpp" //perspective, trans etc
 #include "glm/gtc/type_ptr.hpp" //value_ptr
 
+#include "Camera.h"
+
 #include "GameObject.h"
 #include "GameObjectSimplePhysics.h"
 #include "ObjectRenderer.h"
+
 
 #define NUM_BUNNIES 10
 #define NUM_ROBOTS 1
@@ -40,7 +43,6 @@ ObjectRenderer *objectRenderer;
 int g_SM = 1;
 int g_width;
 int g_height;
-float g_Camtrans = 0;
 float g_angle = 0;
 int g_mat_id = 0;
 glm::vec3 g_trans(0, 0, -3.0f);
@@ -58,6 +60,8 @@ int g_robotMesh[NUM_ROBOTS];
 
 glm::vec2 cameraRotate(0.0f, 0.0f);
 glm::vec3 cameraZoom(0.0f, 0.0f, 0.0f);
+GLint currentLMBstate = 0;
+Camera currentCamera(glm::vec3(0.0f, 0.0f, 0.0f));
 
 GLuint ShadeProg;
 //GLuint posBufObj = 0;
@@ -104,7 +108,6 @@ inline void safe_glUniformMatrix4fv(const GLint handle, const GLfloat data[]) {
 
 /* helper function to send materials to the shader - you must create your own */
 void SetMaterial(int i) {
-
 	glUseProgram(ShadeProg);
 	switch (i) {
 	case 0: //shiny blue plastic
@@ -151,11 +154,18 @@ void SetView() {
 
 	glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
 	lookAt += cameraZoom;
-//	x = radius*cos(phi)*cos(theta)
-//	y = radius*sin(phi)
-//	z = radius*cos(phi)*cos(90.0-theta)
+
 	glm::mat4 com = glm::lookAt(cameraZoom, lookAt, glm::vec3(0, 1, 0));
+	
+	static bool doShowOnce = true;
+	if (doShowOnce) {
+	for(int i = 0; i < 16; i++) {
+		printf("com[%d] is %f\n", i, glm::value_ptr(com)[i]);
+	}
+		doShowOnce = false;
+	}
 	safe_glUniformMatrix4fv(h_uViewMatrix, glm::value_ptr(com));
+	
 }
 
 /* model transforms */
@@ -645,14 +655,23 @@ void drawGL()
 	glUseProgram(ShadeProg);
 
 	SetProjectionMatrix();
-	SetView();
-
+	safe_glUniformMatrix4fv(h_uViewMatrix, glm::value_ptr(currentCamera.getViewMatrix()));
+	
+	static bool doShowOnce = true;
+	if (doShowOnce) {
+		for (int i = 0; i< 16; i++) {
+			printf("getViewMatrix[%d] is %f\n", i, glm::value_ptr(currentCamera.getViewMatrix())[i]);
+		}
+		doShowOnce = false;
+	}
+	
+	//SetView();
 //	SetModel();
 //	SetMaterial(g_mat_id);
 	glUniform3f(h_uLightPos, g_light.x, g_light.y, g_light.z);
 	glUniform1i(h_uShadeM, g_SM);
 	glUniform1f(uDrawNormals, drawNormals);
-	glUniform3f(uCameraLoc, cameraZoom.x, cameraZoom.y, cameraZoom.z);
+	glUniform3f(uCameraLoc, 0, 0, -10);
 	/*
 	// Enable and bind position array for drawing
 	GLSL::enableVertexAttribArray(h_aPosition);
@@ -728,6 +747,32 @@ void scroll_callback(GLFWwindow* window, double xOffset, double yOffset) {
 	cameraRotate.y += xOffset * 0.1;
 }
 
+void onCursorPosChange(GLFWwindow *window, double newX, double newY) {
+	static double lastMouseX;
+	static double lastMouseY;
+	if (currentLMBstate == GLFW_PRESS) {
+		//update phi and theta
+		currentCamera.updateAngle(newX - lastMouseX, newY - lastMouseY);
+		
+		lastMouseY = newY;
+		lastMouseX = newX;
+	}
+}
+
+void onMouseBtnEvent(GLFWwindow *window, int button, int action, int mods) {
+	static GLint lastLMBstate;
+	if (button == GLFW_MOUSE_BUTTON_LEFT) {
+		/*if(lastLMBstate == action && lastLMBstate == GLFW_PRESS) {
+			currentLMBstate = GLFW_PRESS;
+		}
+		else {
+			currentLMBstate = GLFW_RELEASE;
+		}
+		lastLMBstate = action;*/
+		currentLMBstate = action;
+	}
+}
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	if (key == GLFW_KEY_X && action == GLFW_PRESS)
@@ -766,6 +811,10 @@ int main(int argc, char **argv)
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetWindowSizeCallback(window, window_size_callback);
 	glfwSetScrollCallback(window, scroll_callback);
+	
+	//cursor and mouse handlers
+	glfwSetCursorPosCallback(window, onCursorPosChange);
+	glfwSetMouseButtonCallback(window, onMouseBtnEvent);
 	// Initialize GLEW
 	if (glewInit() != GLEW_OK) {
 		fprintf(stderr, "Failed to initialize GLEW\n");
@@ -777,7 +826,7 @@ int main(int argc, char **argv)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-//	loadShapes("models/bunny.obj");
+
 //	loadrobot("sphere.obj");
 	loadRobot("models/cube.obj");
 	initGL();
@@ -785,6 +834,7 @@ int main(int argc, char **argv)
 	initRobot();
 	initRobots();
 	installShaders("shaders/vert.glsl", "shaders/frag.glsl");
+	//currentCamera = new Camera(glm::vec3(0, 0, 0));
 	initBunnies();
 	initGround();
 
@@ -816,7 +866,7 @@ int main(int argc, char **argv)
 		// Swap buffers
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-
+/*
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
 			cameraZoom += lookAt * 0.1f;
@@ -834,20 +884,21 @@ int main(int argc, char **argv)
 			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
 			glm::vec3 cross = glm::cross(lookAt, glm::vec3(0, 1, 0));
 			cameraZoom += cross * 0.1f;
-		}
+		}*/
 		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
 			g_light.x += 0.15;
 		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
 			g_light.x -= 0.15;
+		/*
 		if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
-			cameraRotate.x += 0.01;
+			//cameraRotate.x += 0.01;
 		if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
-			cameraRotate.x -= 0.01;
+			//cameraRotate.x -= 0.01;
 		if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
-			cameraRotate.y -= 0.01;
+			//cameraRotate.y -= 0.01;
 		if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
-			cameraRotate.y += 0.01;
-		cameraRotate.x = glm::max(glm::min(cameraRotate.x, 1.0f), -1.0f);
+			//cameraRotate.y += 0.01;*/
+		//cameraRotate.x = glm::max(glm::min(cameraRotate.x, 1.0f), -1.0f);
 
 
 	} // Check if the ESC key was pressed or the window was closed
