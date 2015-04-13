@@ -29,6 +29,9 @@ vector<tinyobj::material_t> materials;
 vector<tinyobj::shape_t> robotShapes;
 vector<tinyobj::material_t> robotMaterials;
 
+#include "GameObject.h"
+GameObject *test;
+
 int g_SM = 1;
 int g_width;
 int g_height;
@@ -659,6 +662,7 @@ void drawGL()
 	for (int i = 0; i < NUM_BUNNIES; i++) {
 		drawBunny(i, nIndices);
 	}
+	test->render();
 
 	if (theta >= 45 || theta <= -45) {
 		thetaRotateBy = -thetaRotateBy;
@@ -772,9 +776,12 @@ int main(int argc, char **argv)
 
 	glClearColor(0.6f, 0.6f, 0.8f, 1.0f);
 
+	test = new GameObject(&shapes, h_uModelMatrix, glm::vec3(0, 0, 0));
+
 
 	do{
 		moveAllObjects();
+		test->update();
 		drawGL();
 		// Swap buffers
 		glfwSwapBuffers(window);

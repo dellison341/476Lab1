@@ -9,6 +9,7 @@ set(SOURCES
    GLSL.cpp
    tiny_obj_loader.cc
    RenderingHelper.cpp
+   GameObject.cpp
 
    shaders/frag.glsl
    shaders/vert.glsl
