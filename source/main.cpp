@@ -17,6 +17,10 @@
 #include "glm/gtc/matrix_transform.hpp" //perspective, trans etc
 #include "glm/gtc/type_ptr.hpp" //value_ptr
 
+#include "GameObject.h"
+#include "GameObjectSimplePhysics.h"
+#include "ObjectRenderer.h"
+
 #define NUM_BUNNIES 10
 #define NUM_ROBOTS 1
 
@@ -29,8 +33,9 @@ vector<tinyobj::material_t> materials;
 vector<tinyobj::shape_t> robotShapes;
 vector<tinyobj::material_t> robotMaterials;
 
-#include "GameObject.h"
-GameObject *test;
+GameObject *object;
+GameObjectSimplePhysics *physicsEngine;
+ObjectRenderer *objectRenderer;
 
 int g_SM = 1;
 int g_width;
@@ -55,9 +60,9 @@ glm::vec2 cameraRotate(0.0f, 0.0f);
 glm::vec3 cameraZoom(0.0f, 0.0f, 0.0f);
 
 GLuint ShadeProg;
-GLuint posBufObj = 0;
-GLuint norBufObj = 0;
-GLuint indBufObj = 0;
+//GLuint posBufObj = 0;
+//GLuint norBufObj = 0;
+//GLuint indBufObj = 0;
 
 float drawNormals = -1.0;
 GLint uDrawNormals;
@@ -253,6 +258,7 @@ void loadShapes(const string &objFile)
 	resize_obj(shapes);
 }
 
+
 void loadRobot(const string &objFile)
 {
 	string err = tinyobj::LoadObj(robotShapes, robotMaterials, objFile.c_str());
@@ -276,6 +282,7 @@ void initGL()
 	theta = 0;
 }
 
+/*
 void initBunnyShape() {
 	// Send the position array to the GPU
 	const vector<float> &posBuf = shapes[0].mesh.positions;
@@ -343,6 +350,7 @@ void initBunnyShape() {
 	GLSL::checkVersion();
 	assert(glGetError() == GL_NO_ERROR);
 }
+*/
 
 bool installShaders(const string &vShaderName, const string &fShaderName)
 {
@@ -642,7 +650,7 @@ void drawGL()
 	glUniform1i(h_uShadeM, g_SM);
 	glUniform1f(uDrawNormals, drawNormals);
 	glUniform3f(uCameraLoc, cameraZoom.x, cameraZoom.y, cameraZoom.z);
-
+	/*
 	// Enable and bind position array for drawing
 	GLSL::enableVertexAttribArray(h_aPosition);
 	glBindBuffer(GL_ARRAY_BUFFER, posBufObj);
@@ -656,13 +664,16 @@ void drawGL()
 	// Bind index array for drawing
 	int nIndices = (int)shapes[0].mesh.indices.size();
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indBufObj);
+	*/
 
 
+//	for (int i = 0; i < NUM_BUNNIES; i++) {
+//		drawBunny(i, nIndices);
+//	}
 
-	for (int i = 0; i < NUM_BUNNIES; i++) {
-		drawBunny(i, nIndices);
-	}
-	test->render();
+	objectRenderer->begin();
+	objectRenderer->render(object);
+	objectRenderer->end();
 
 	if (theta >= 45 || theta <= -45) {
 		thetaRotateBy = -thetaRotateBy;
@@ -767,7 +778,7 @@ int main(int argc, char **argv)
 //	loadrobot("sphere.obj");
 	loadRobot("models/cube.obj");
 	initGL();
-	initBunnyShape();
+//	initBunnyShape();
 	initRobot();
 	initRobots();
 	installShaders("shaders/vert.glsl", "shaders/frag.glsl");
@@ -776,12 +787,28 @@ int main(int argc, char **argv)
 
 	glClearColor(0.6f, 0.6f, 0.8f, 1.0f);
 
-	test = new GameObject(&shapes, h_uModelMatrix, glm::vec3(0, 0, 0));
+	physicsEngine = new GameObjectSimplePhysics();
+	objectRenderer = new ObjectRenderer("models/bunny.obj", h_uModelMatrix, h_aPosition, h_aNormal);
+	object = new GameObject(glm::vec3(0, 0, 0)/*, physicsEngine, objectRenderer*/);
 
+	double lastTime = glfwGetTime();
+	int nbFrames = 0;
 
 	do{
+		// Measure speed
+		double currentTime = glfwGetTime();
+		nbFrames++;
+		if (currentTime - lastTime >= 1.0){ // If last prinf() was more than 1 sec ago
+			// printf and reset timer
+//			printf("%f ms/frame\n", 1000.0 / double(nbFrames));
+			printf("%f frames per second\n", nbFrames / (currentTime - lastTime));
+			nbFrames = 0;
+			lastTime += 1.0;
+		}
+
+
 		moveAllObjects();
-		test->update();
+		physicsEngine->update(object);
 		drawGL();
 		// Swap buffers
 		glfwSwapBuffers(window);

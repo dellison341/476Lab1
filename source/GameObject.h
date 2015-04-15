@@ -1,9 +1,4 @@
-/*
- * RenderingHelper.h
- *
- *  Created on: Jul 28, 2011
- *      Author: Wyatt and Evan
- */
+
 
 #ifndef GameObject_H_
 #define GameObject_H_
@@ -13,14 +8,24 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp" //perspective, trans etc
 #include "glm/gtc/type_ptr.hpp" //value_ptr
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
+
+//#include "GameObjectSimplePhysics.h"
+//#include "ObjectRenderer.h"
 
 class GameObject {
 public:
-	GameObject(std::vector<tinyobj::shape_t> *objShapes, GLint modelMatrixHandle, glm::vec3 position);
+
+	GameObject(glm::vec3 position/*, GameObjectSimplePhysics *physics, ObjectRenderer *renderer*/);
 	void update();
 	void render();
+
+	glm::vec3 pos;
+	glm::vec3 vel;
+	float rotY;
+
+private:
+//	GameObjectSimplePhysics *physicsEngine;
+//	ObjectRenderer *objectRenderer;
 };
 
 #endif

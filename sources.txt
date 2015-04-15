@@ -9,6 +9,8 @@ set(SOURCES
    GLSL.cpp
    tiny_obj_loader.cc
    RenderingHelper.cpp
+   ObjectRenderer.cpp
+   GameObjectSimplePhysics.cpp
    GameObject.cpp
 
    shaders/frag.glsl
