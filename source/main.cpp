@@ -826,16 +826,7 @@ int main(int argc, char **argv)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-<<<<<<< HEAD
-    
-    char cCurrentPath[FILENAME_MAX];
-    getcwd(cCurrentPath, sizeof(cCurrentPath));
-    printf("Working directory: %s\n", cCurrentPath);
-    
-	loadShapes("models/bunny.obj");
-=======
 
->>>>>>> origin/master
 //	loadrobot("sphere.obj");
 	loadRobot("models/cube.obj");
 	initGL();
