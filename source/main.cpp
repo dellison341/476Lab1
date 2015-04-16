@@ -23,12 +23,11 @@
 #include "GameObject.h"
 #include "GameObjectSimplePhysics.h"
 #include "ObjectRenderer.h"
-#include "PlayerPhysics.h"
 
 
 #define NUM_BUNNIES 1
 #define NUM_ROBOTS 10
-#define SPEED 0.3
+#define SPEED 0.2
 #define GROUND_EDGE 70
 #define SPAWN_LIMIT 30
 
