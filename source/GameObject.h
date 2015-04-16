@@ -22,10 +22,13 @@ public:
 	void update();
 	void render();
 
+	GameObjectSimplePhysics *getPhysics();
 	glm::vec3 pos;
 	glm::vec3 vel;
+	float radius;
 	float rotY;
-
+	void setVelocity(glm::vec3 velocity);
+	ObjectRenderer *getRenderer();
 private:
 	GameObjectSimplePhysics *physicsEngine;
 	ObjectRenderer *objectRenderer;

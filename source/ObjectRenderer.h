@@ -25,10 +25,23 @@ public:
 	void initObjShape();
 	void init();
 	void begin();
-
+	float getRadius();
 
 private:
-
+	GLuint posBufObject;
+	GLuint norBufObject;
+	GLuint indBufObject;
+	
+	std::vector<tinyobj::shape_t> objectShapes;
+	std::vector<tinyobj::material_t> objectMaterials;
+	
+	GLint h_uModelMatrixHandle;
+	GLint h_aPositionHandle;
+	GLint h_aNormalHandle;
+	
+	char *filePath;
+	
+	float boundRadius;
 
 };
 

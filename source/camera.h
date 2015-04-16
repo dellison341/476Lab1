@@ -13,24 +13,22 @@
 
 
 class Camera {
-	public:
-		Camera(glm::vec3 initialPosition);
-		void updateFocus(glm::vec3 posChange);
-		//updatePos takes the change in mouse position
-		void updateAngle(double dx, double dy);
-		glm::mat4 getViewMatrix();
-	private:
-		glm::vec3 eye;
-		glm::vec3 position;
-		glm::vec3 view;
-		glm::vec3 up;
-		GLint viewMatrixHandle;
-	    glm::vec2 cameraRotate;
-		glm::vec3 cameraZoom;
-		//pitch (up and down) is phi, yaw (side to side) is theta
-		float phi = 0;
-		float theta = 0;
-		void updateEye();
+public:
+	Camera(float cameraDistance);
+	void updateFocus(glm::vec3 posChange);
+	void setFocus(glm::vec3 newFocus);
+	//updatePos takes the change in mouse position
+	void updateAngle(double dx, double dy);
+	glm::mat4 getViewMatrix();
+	glm::vec3 getEyePosition();
+private:
+	glm::vec3 eye;
+	glm::vec3 focusPos = glm::vec3(0, 0, 0);
+	//pitch (up and down) is phi, yaw (side to side) is theta
+	float phi = 0;
+	float theta = 0;
+	void updateEye();
+	float radius;
 };
 
 

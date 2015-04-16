@@ -1,18 +1,7 @@
 
 #include "ObjectRenderer.h"
 
-GLuint posBufObject;
-GLuint norBufObject;
-GLuint indBufObject;
 
-std::vector<tinyobj::shape_t> objectShapes;
-std::vector<tinyobj::material_t> objectMaterials;
-
-GLint h_uModelMatrixHandle;
-GLint h_aPositionHandle;
-GLint h_aNormalHandle;
-
-char *filePath;
 
 ObjectRenderer::ObjectRenderer(char *file, GLint modelMatrixHandle, GLint positionHandle, GLint normalHandle) {
 	h_uModelMatrixHandle = modelMatrixHandle;
@@ -138,6 +127,10 @@ void ObjectRenderer::resizeObj(std::vector<tinyobj::shape_t> &shapes){
 	float scaleX, scaleY, scaleZ;
 	float shiftX, shiftY, shiftZ;
 	float epsilon = 0.001;
+	
+	boundRadius = 0.0f;
+	float maxSq = 0.0f;
+	float curSq;
 
 	minX = minY = minZ = 1.1754E+38F;
 	maxX = maxY = maxZ = -1.1754E+38F;
@@ -153,6 +146,8 @@ void ObjectRenderer::resizeObj(std::vector<tinyobj::shape_t> &shapes){
 
 			if (shapes[i].mesh.positions[3 * v + 2] < minZ) minZ = shapes[i].mesh.positions[3 * v + 2];
 			if (shapes[i].mesh.positions[3 * v + 2] > maxZ) maxZ = shapes[i].mesh.positions[3 * v + 2];
+			
+
 		}
 	}
 	//From min and max compute necessary scale and shift for each dimension
@@ -190,6 +185,19 @@ void ObjectRenderer::resizeObj(std::vector<tinyobj::shape_t> &shapes){
 			assert(shapes[i].mesh.positions[3 * v + 2] <= 1.0 + epsilon);
 		}
 	}
+	
+	
+	for (size_t i = 0; i < shapes.size(); i++) {
+		for (size_t v = 0; v < shapes[i].mesh.positions.size() / 3; v++) {
+			curSq = powf(shapes[i].mesh.positions[3 * v + 0], 2.0f) + powf(shapes[i].mesh.positions[3 * v + 1], 2.0f) + powf(shapes[i].mesh.positions[3 * v + 2], 2.0f);
+			if (curSq > maxSq) {
+				maxSq = curSq;
+			}
+		}
+	}
+	boundRadius = sqrt(maxSq);
+	printf("Set bounding sphere to %f for mesh %s\n", boundRadius, filePath);
+
 }
 
 void ObjectRenderer::loadObjShapes(const std::string &objFile)
@@ -198,4 +206,8 @@ void ObjectRenderer::loadObjShapes(const std::string &objFile)
 	if (!err.empty()) {
 		std::cerr << err << std::endl;
 	}
+}
+
+float ObjectRenderer::getRadius() {
+	return boundRadius;
 }

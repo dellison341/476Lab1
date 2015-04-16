@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cmath>
 #include <stdio.h>
+#include <list>
 #include "GLSL.h"
 #include "tiny_obj_loader.h"
 #include "glm/glm.hpp"
@@ -22,10 +23,14 @@
 #include "GameObject.h"
 #include "GameObjectSimplePhysics.h"
 #include "ObjectRenderer.h"
+#include "PlayerPhysics.h"
 
 
-#define NUM_BUNNIES 10
-#define NUM_ROBOTS 1
+#define NUM_BUNNIES 1
+#define NUM_ROBOTS 10
+#define SPEED 0.3
+#define GROUND_EDGE 70
+#define SPAWN_LIMIT 30
 
 GLFWwindow* window;
 using namespace std;
@@ -36,7 +41,7 @@ using namespace std;
 vector<tinyobj::shape_t> robotShapes;
 vector<tinyobj::material_t> robotMaterials;
 
-GameObject *object;
+GameObject *player;
 GameObjectSimplePhysics *physicsEngine;
 ObjectRenderer *objectRenderer;
 
@@ -61,7 +66,7 @@ int g_robotMesh[NUM_ROBOTS];
 glm::vec2 cameraRotate(0.0f, 0.0f);
 glm::vec3 cameraZoom(0.0f, 0.0f, 0.0f);
 GLint currentLMBstate = 0;
-Camera currentCamera(glm::vec3(0.0f, 0.0f, 0.0f));
+Camera currentCamera(3.0f);
 
 GLuint ShadeProg;
 //GLuint posBufObj = 0;
@@ -72,6 +77,9 @@ float drawNormals = -1.0;
 GLint uDrawNormals;
 float g_angleBunny = 0.0;
 GLint uCameraLoc;
+
+//all the game objects
+vector<GameObject *> allObjects;
 
 
 //Handles to the shader data
@@ -147,25 +155,6 @@ void SetMaterial(int i) {
 void SetProjectionMatrix() {
 	glm::mat4 Projection = glm::perspective(80.0f, (float)g_width / g_height, 0.1f, 100.f);
 	safe_glUniformMatrix4fv(h_uProjMatrix, glm::value_ptr(Projection));
-}
-
-/* camera controls - do not change beyond the current set up to rotate*/
-void SetView() {
-
-	glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-	lookAt += cameraZoom;
-
-	glm::mat4 com = glm::lookAt(cameraZoom, lookAt, glm::vec3(0, 1, 0));
-	
-	static bool doShowOnce = true;
-	if (doShowOnce) {
-	for(int i = 0; i < 16; i++) {
-		printf("com[%d] is %f\n", i, glm::value_ptr(com)[i]);
-	}
-		doShowOnce = false;
-	}
-	safe_glUniformMatrix4fv(h_uViewMatrix, glm::value_ptr(com));
-	
 }
 
 /* model transforms */
@@ -293,6 +282,27 @@ void initGL()
 	ModelTrans.useModelViewMatrix();
 	ModelTrans.loadIdentity();
 	theta = 0;
+}
+
+//get an x, y, z position that doesn't intersect with any other objects
+glm::vec3 getNewPosition(vector<GameObject *> allObjects, float radius) {
+	bool intersectsAnotherObject = false;
+	vec3 result;
+	
+	do {
+		result = vec3(rand() % (2 * SPAWN_LIMIT) - SPAWN_LIMIT,
+					  0.0f,
+					  rand() % (2 * SPAWN_LIMIT) - SPAWN_LIMIT);
+		for(int i = 0; i < allObjects.size(); i++) {
+			if (glm::distance(allObjects[i]->pos, result) < radius + allObjects[i]->radius) {
+				intersectsAnotherObject = true;
+			}
+		}
+	//	assert(result.x >= -200 && result.x <= 200);
+	//	assert(result.z >= -200 && result.z <= 200);
+	} while(intersectsAnotherObject);
+	
+	return result;
 }
 
 /*
@@ -440,7 +450,7 @@ void initBunnies() {
 		g_bunnyMesh[i] = rand() % 5;
 	}
 }
-
+/*
 void initRobots() {
 	for (int i = 0; i < NUM_ROBOTS; i++) {
 		g_robotPositions[i] = (rand() / (float)RAND_MAX - 0.5f) * 40;
@@ -448,18 +458,18 @@ void initRobots() {
 		g_robotRotations[i] = (rand() / (float)RAND_MAX - 0.5f) * 360;
 		g_robotMesh[i] = rand() % 5;
 	}
-}
+}*/
 
 void initGround() {
 
-	float G_edge = 200;
+
 	GLfloat g_backgnd_data[] = {
-		-G_edge, -1.0f, -G_edge,
-		-G_edge, -1.0f, G_edge,
-		G_edge, -1.0f, -G_edge,
-		-G_edge, -1.0f, G_edge,
-		G_edge, -1.0f, -G_edge,
-		G_edge, -1.0f, G_edge,
+		-GROUND_EDGE, -1.0f, -GROUND_EDGE,
+		-GROUND_EDGE, -1.0f, GROUND_EDGE,
+		GROUND_EDGE, -1.0f, -GROUND_EDGE,
+		-GROUND_EDGE, -1.0f, GROUND_EDGE,
+		GROUND_EDGE, -1.0f, -GROUND_EDGE,
+		GROUND_EDGE, -1.0f, GROUND_EDGE,
 	};
 
 	GLfloat nor_Buf_G[] = {
@@ -655,19 +665,11 @@ void drawGL()
 	glUseProgram(ShadeProg);
 
 	SetProjectionMatrix();
+	//get V matrix from camera
 	safe_glUniformMatrix4fv(h_uViewMatrix, glm::value_ptr(currentCamera.getViewMatrix()));
 	
-	static bool doShowOnce = true;
-	if (doShowOnce) {
-		for (int i = 0; i< 16; i++) {
-			printf("getViewMatrix[%d] is %f\n", i, glm::value_ptr(currentCamera.getViewMatrix())[i]);
-		}
-		doShowOnce = false;
-	}
 	
-	//SetView();
-//	SetModel();
-//	SetMaterial(g_mat_id);
+
 	glUniform3f(h_uLightPos, g_light.x, g_light.y, g_light.z);
 	glUniform1i(h_uShadeM, g_SM);
 	glUniform1f(uDrawNormals, drawNormals);
@@ -692,9 +694,15 @@ void drawGL()
 //	for (int i = 0; i < NUM_BUNNIES; i++) {
 //		drawBunny(i, nIndices);
 //	}
+	
+	for (int i = 0; i < allObjects.size(); i++) {
+		allObjects[i]->getRenderer()->begin();
+		allObjects[i]->render();
+		allObjects[i]->getRenderer()->end();
+	}
 
 	objectRenderer->begin();
-	object->render();
+	player->render();
 	objectRenderer->end();
 
 	if (theta >= 45 || theta <= -45) {
@@ -707,7 +715,6 @@ void drawGL()
 		drawRobot(g_robotPositions[i], g_robotPositions[i + NUM_ROBOTS], g_robotRotations[i]);
 	}
 
-//	drawRobot(0, 0, 0);
 	SetMaterial(3);
 
 	//draw the ground
@@ -760,15 +767,7 @@ void onCursorPosChange(GLFWwindow *window, double newX, double newY) {
 }
 
 void onMouseBtnEvent(GLFWwindow *window, int button, int action, int mods) {
-	static GLint lastLMBstate;
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
-		/*if(lastLMBstate == action && lastLMBstate == GLFW_PRESS) {
-			currentLMBstate = GLFW_PRESS;
-		}
-		else {
-			currentLMBstate = GLFW_RELEASE;
-		}
-		lastLMBstate = action;*/
 		currentLMBstate = action;
 	}
 }
@@ -832,7 +831,7 @@ int main(int argc, char **argv)
 	initGL();
 //	initBunnyShape();
 	initRobot();
-	initRobots();
+	//initRobots();
 	installShaders("shaders/vert.glsl", "shaders/frag.glsl");
 	//currentCamera = new Camera(glm::vec3(0, 0, 0));
 	initBunnies();
@@ -840,10 +839,23 @@ int main(int argc, char **argv)
 
 	glClearColor(0.6f, 0.6f, 0.8f, 1.0f);
 
+
+
+	
+	ObjectRenderer *tempRenderer;
+	
+	for (int i = 0; i < NUM_ROBOTS; i++) {
+		tempRenderer = new ObjectRenderer("models/face.obj", h_uModelMatrix, h_aPosition, h_aNormal);
+		physicsEngine = new GameObjectSimplePhysics();
+		allObjects.push_back(new GameObject(getNewPosition(allObjects, tempRenderer->getRadius()), physicsEngine, tempRenderer));
+	}
+	
 	physicsEngine = new GameObjectSimplePhysics();
 	objectRenderer = new ObjectRenderer("models/bunny.obj", h_uModelMatrix, h_aPosition, h_aNormal);
-	object = new GameObject(glm::vec3(0, 0, 0), physicsEngine, objectRenderer);
-
+	player = new GameObject(glm::vec3(0, 0, 0), physicsEngine, objectRenderer);
+	allObjects.push_back(player);
+	
+	
 	double lastTime = glfwGetTime();
 	int nbFrames = 0;
 
@@ -860,45 +872,43 @@ int main(int argc, char **argv)
 		}
 
 
-		moveAllObjects();
-		object->update();
+		for (int i = 0; i < allObjects.size(); i++) {
+			allObjects[i]->update();
+		}
+		//player->update();
 		drawGL();
 		// Swap buffers
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-/*
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-			cameraZoom += lookAt * 0.1f;
+		
+		currentCamera.setFocus(player->pos);
+		glm::vec3 movement = glm::normalize(player->pos - currentCamera.getEyePosition());
+		printf("Camera to focus vector is <%f, %f, %f>\n",
+			   movement.x, movement.y, movement.z);
+
+		GLint wState = glfwGetKey(window, GLFW_KEY_W);
+		GLint sState = glfwGetKey(window, GLFW_KEY_S);
+		
+		if (wState == GLFW_PRESS) {
+			movement *= SPEED;
 		}
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-			cameraZoom -= lookAt * 0.1f;
+		else if (sState == GLFW_PRESS) {
+			movement *= SPEED;
+			movement *= -1;
 		}
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-			glm::vec3 cross = glm::cross(lookAt, glm::vec3(0, 1, 0));
-			cameraZoom -= cross * 0.1f;
+		else {
+			movement = vec3(0.0);
 		}
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-			glm::vec3 cross = glm::cross(lookAt, glm::vec3(0, 1, 0));
-			cameraZoom += cross * 0.1f;
-		}*/
+		movement.y = 0.0;
+		player->setVelocity(movement);
+		
+		
 		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
 			g_light.x += 0.15;
 		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
 			g_light.x -= 0.15;
-		/*
-		if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
-			//cameraRotate.x += 0.01;
-		if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
-			//cameraRotate.x -= 0.01;
-		if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
-			//cameraRotate.y -= 0.01;
-		if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
-			//cameraRotate.y += 0.01;*/
-		//cameraRotate.x = glm::max(glm::min(cameraRotate.x, 1.0f), -1.0f);
+		
+			
 
 
 	} // Check if the ESC key was pressed or the window was closed

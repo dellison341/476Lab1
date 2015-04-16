@@ -15,32 +15,35 @@ const float maxAngle = 3.14/2;
 const float minAngle = -3.14/2;
 
 
-Camera::Camera(glm::vec3 initialPosition) {
-	
+Camera::Camera(float cameraDistance) {
+	radius = cameraDistance;
 }
 
 void Camera::updateFocus(glm::vec3 posChange) {
-	
+	focusPos += posChange;
+	printf("focusPos is now <%f, %f, %f>\n", focusPos.x, focusPos.y, focusPos.z);
+}
+
+void Camera::setFocus(glm::vec3 newFocus) {
+	focusPos = newFocus;
 }
 
 glm::mat4 Camera::getViewMatrix() {
 	updateEye();
-	glm::mat4 V = glm::lookAt(eye, glm::vec3(0,0,0), glm::vec3(0, 1, 0));
-	static bool doShowOnce = true;
-	if (doShowOnce) {
-		for (int i = 0; i < 16; i++) {
-			printf("lookAt[%d] is %f\n", i, glm::value_ptr(V)[i]);
-		}
-		doShowOnce = false;
-	}
-	//V *=
+	glm::mat4 V = glm::lookAt(eye, focusPos, glm::vec3(0, 1, 0));
+
 	return V;
 }
 
 
 void Camera::updateEye() {
 	eye = glm::vec3(cos(phi)*cos(theta), sin(phi), cos(phi)*cos(3.14 / 2.0 - theta));
-	
+	eye *= radius;
+	eye += focusPos;
+}
+
+glm::vec3 Camera::getEyePosition() {
+	return glm::vec3(eye);
 }
 
 void Camera::updateAngle(double dx, double dy) {
@@ -54,6 +57,5 @@ void Camera::updateAngle(double dx, double dy) {
 		phi = minAngle;
 	}
 	
-	updateEye();
 }
 

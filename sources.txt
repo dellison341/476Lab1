@@ -1,6 +1,12 @@
 # List all .h files here
 set(HEADERS
    GLIncludes.h
+   Camera.h
+   GameObject.h
+   GameObjectSimplePhysics.h
+   GLSL.h
+   ObjectRenderer.h
+   PlayerPhysics.h
 )
 
 # List all .c / .cpp files here
@@ -12,7 +18,8 @@ set(SOURCES
    ObjectRenderer.cpp
    GameObjectSimplePhysics.cpp
    GameObject.cpp
-
+   Camera.cpp
+   PlayerPhysics.cpp
    shaders/frag.glsl
    shaders/vert.glsl
 )
