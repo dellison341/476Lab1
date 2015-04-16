@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cmath>
 #include <stdio.h>
+#include <list>
 #include "GLSL.h"
 #include "tiny_obj_loader.h"
 #include "glm/glm.hpp"
@@ -17,24 +18,37 @@
 #include "glm/gtc/matrix_transform.hpp" //perspective, trans etc
 #include "glm/gtc/type_ptr.hpp" //value_ptr
 
-#include <unistd.h>
 
-#define NUM_BUNNIES 10
-#define NUM_ROBOTS 1
+#include "Camera.h"
+
+#include "GameObject.h"
+#include "GameObjectSimplePhysics.h"
+#include "ObjectRenderer.h"
+
+
+#define NUM_BUNNIES 1
+#define NUM_ROBOTS 10
+#define SPEED 0.2
+#define GROUND_EDGE 70
+#define SPAWN_LIMIT 30
+
 
 GLFWwindow* window;
 using namespace std;
 
-vector<tinyobj::shape_t> shapes;
-vector<tinyobj::material_t> materials;
+//vector<tinyobj::shape_t> shapes;
+//vector<tinyobj::material_t> materials;
 
 vector<tinyobj::shape_t> robotShapes;
 vector<tinyobj::material_t> robotMaterials;
 
+GameObject *player;
+GameObjectSimplePhysics *physicsEngine;
+ObjectRenderer *objectRenderer;
+
 int g_SM = 1;
 int g_width;
 int g_height;
-float g_Camtrans = 0;
 float g_angle = 0;
 int g_mat_id = 0;
 glm::vec3 g_trans(0, 0, -3.0f);
@@ -52,16 +66,21 @@ int g_robotMesh[NUM_ROBOTS];
 
 glm::vec2 cameraRotate(0.0f, 0.0f);
 glm::vec3 cameraZoom(0.0f, 0.0f, 0.0f);
+GLint currentLMBstate = 0;
+Camera currentCamera(3.0f);
 
 GLuint ShadeProg;
-GLuint posBufObj = 0;
-GLuint norBufObj = 0;
-GLuint indBufObj = 0;
+//GLuint posBufObj = 0;
+//GLuint norBufObj = 0;
+//GLuint indBufObj = 0;
 
 float drawNormals = -1.0;
 GLint uDrawNormals;
 float g_angleBunny = 0.0;
 GLint uCameraLoc;
+
+//all the game objects
+vector<GameObject *> allObjects;
 
 
 //Handles to the shader data
@@ -98,7 +117,6 @@ inline void safe_glUniformMatrix4fv(const GLint handle, const GLfloat data[]) {
 
 /* helper function to send materials to the shader - you must create your own */
 void SetMaterial(int i) {
-
 	glUseProgram(ShadeProg);
 	switch (i) {
 	case 0: //shiny blue plastic
@@ -140,18 +158,6 @@ void SetProjectionMatrix() {
 	safe_glUniformMatrix4fv(h_uProjMatrix, glm::value_ptr(Projection));
 }
 
-/* camera controls - do not change beyond the current set up to rotate*/
-void SetView() {
-
-	glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-	lookAt += cameraZoom;
-//	x = radius*cos(phi)*cos(theta)
-//	y = radius*sin(phi)
-//	z = radius*cos(phi)*cos(90.0-theta)
-	glm::mat4 com = glm::lookAt(cameraZoom, lookAt, glm::vec3(0, 1, 0));
-	safe_glUniformMatrix4fv(h_uViewMatrix, glm::value_ptr(com));
-}
-
 /* model transforms */
 void SetModel() {
 	glm::mat4 Trans = glm::translate(glm::mat4(1.0f), g_trans);
@@ -181,6 +187,7 @@ void SetLight() {
 
 //Given a vector of shapes which has already been read from an obj file
 // resize all vertices to the range [-1, 1]
+/*
 void resize_obj(std::vector<tinyobj::shape_t> &shapes){
 	float minX, minY, minZ;
 	float maxX, maxY, maxZ;
@@ -240,9 +247,10 @@ void resize_obj(std::vector<tinyobj::shape_t> &shapes){
 		}
 	}
 }
+*/
 
 
-
+/*
 void loadShapes(const string &objFile)
 {
 	string err = tinyobj::LoadObj(shapes, materials, objFile.c_str());
@@ -251,6 +259,8 @@ void loadShapes(const string &objFile)
 	}
 	resize_obj(shapes);
 }
+*/
+
 
 void loadRobot(const string &objFile)
 {
@@ -275,6 +285,28 @@ void initGL()
 	theta = 0;
 }
 
+//get an x, y, z position that doesn't intersect with any other objects
+glm::vec3 getNewPosition(vector<GameObject *> allObjects, float radius) {
+	bool intersectsAnotherObject = false;
+	vec3 result;
+	
+	do {
+		result = vec3(rand() % (2 * SPAWN_LIMIT) - SPAWN_LIMIT,
+					  0.0f,
+					  rand() % (2 * SPAWN_LIMIT) - SPAWN_LIMIT);
+		for(int i = 0; i < allObjects.size(); i++) {
+			if (glm::distance(allObjects[i]->pos, result) < radius + allObjects[i]->radius) {
+				intersectsAnotherObject = true;
+			}
+		}
+	//	assert(result.x >= -200 && result.x <= 200);
+	//	assert(result.z >= -200 && result.z <= 200);
+	} while(intersectsAnotherObject);
+	
+	return result;
+}
+
+/*
 void initBunnyShape() {
 	// Send the position array to the GPU
 	const vector<float> &posBuf = shapes[0].mesh.positions;
@@ -342,6 +374,7 @@ void initBunnyShape() {
 	GLSL::checkVersion();
 	assert(glGetError() == GL_NO_ERROR);
 }
+*/
 
 bool installShaders(const string &vShaderName, const string &fShaderName)
 {
@@ -418,7 +451,7 @@ void initBunnies() {
 		g_bunnyMesh[i] = rand() % 5;
 	}
 }
-
+/*
 void initRobots() {
 	for (int i = 0; i < NUM_ROBOTS; i++) {
 		g_robotPositions[i] = (rand() / (float)RAND_MAX - 0.5f) * 40;
@@ -426,18 +459,18 @@ void initRobots() {
 		g_robotRotations[i] = (rand() / (float)RAND_MAX - 0.5f) * 360;
 		g_robotMesh[i] = rand() % 5;
 	}
-}
+}*/
 
 void initGround() {
 
-	float G_edge = 200;
+
 	GLfloat g_backgnd_data[] = {
-		-G_edge, -1.0f, -G_edge,
-		-G_edge, -1.0f, G_edge,
-		G_edge, -1.0f, -G_edge,
-		-G_edge, -1.0f, G_edge,
-		G_edge, -1.0f, -G_edge,
-		G_edge, -1.0f, G_edge,
+		-GROUND_EDGE, -1.0f, -GROUND_EDGE,
+		-GROUND_EDGE, -1.0f, GROUND_EDGE,
+		GROUND_EDGE, -1.0f, -GROUND_EDGE,
+		-GROUND_EDGE, -1.0f, GROUND_EDGE,
+		GROUND_EDGE, -1.0f, -GROUND_EDGE,
+		GROUND_EDGE, -1.0f, GROUND_EDGE,
 	};
 
 	GLfloat nor_Buf_G[] = {
@@ -633,15 +666,16 @@ void drawGL()
 	glUseProgram(ShadeProg);
 
 	SetProjectionMatrix();
-	SetView();
+	//get V matrix from camera
+	safe_glUniformMatrix4fv(h_uViewMatrix, glm::value_ptr(currentCamera.getViewMatrix()));
+	
+	
 
-//	SetModel();
-//	SetMaterial(g_mat_id);
 	glUniform3f(h_uLightPos, g_light.x, g_light.y, g_light.z);
 	glUniform1i(h_uShadeM, g_SM);
 	glUniform1f(uDrawNormals, drawNormals);
-	glUniform3f(uCameraLoc, cameraZoom.x, cameraZoom.y, cameraZoom.z);
-
+	glUniform3f(uCameraLoc, 0, 0, -10);
+	/*
 	// Enable and bind position array for drawing
 	GLSL::enableVertexAttribArray(h_aPosition);
 	glBindBuffer(GL_ARRAY_BUFFER, posBufObj);
@@ -655,12 +689,22 @@ void drawGL()
 	// Bind index array for drawing
 	int nIndices = (int)shapes[0].mesh.indices.size();
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indBufObj);
+	*/
 
 
-
-	for (int i = 0; i < NUM_BUNNIES; i++) {
-		drawBunny(i, nIndices);
+//	for (int i = 0; i < NUM_BUNNIES; i++) {
+//		drawBunny(i, nIndices);
+//	}
+	
+	for (int i = 0; i < allObjects.size(); i++) {
+		allObjects[i]->getRenderer()->begin();
+		allObjects[i]->render();
+		allObjects[i]->getRenderer()->end();
 	}
+
+	objectRenderer->begin();
+	player->render();
+	objectRenderer->end();
 
 	if (theta >= 45 || theta <= -45) {
 		thetaRotateBy = -thetaRotateBy;
@@ -672,7 +716,6 @@ void drawGL()
 		drawRobot(g_robotPositions[i], g_robotPositions[i + NUM_ROBOTS], g_robotRotations[i]);
 	}
 
-//	drawRobot(0, 0, 0);
 	SetMaterial(3);
 
 	//draw the ground
@@ -710,6 +753,24 @@ void scroll_callback(GLFWwindow* window, double xOffset, double yOffset) {
 	cameraRotate.x += yOffset * 0.1;
 	cameraRotate.x = glm::max(glm::min(cameraRotate.x, 1.0f), -1.0f);
 	cameraRotate.y += xOffset * 0.1;
+}
+
+void onCursorPosChange(GLFWwindow *window, double newX, double newY) {
+	static double lastMouseX;
+	static double lastMouseY;
+	if (currentLMBstate == GLFW_PRESS) {
+		//update phi and theta
+		currentCamera.updateAngle(newX - lastMouseX, newY - lastMouseY);
+		
+		lastMouseY = newY;
+		lastMouseX = newX;
+	}
+}
+
+void onMouseBtnEvent(GLFWwindow *window, int button, int action, int mods) {
+	if (button == GLFW_MOUSE_BUTTON_LEFT) {
+		currentLMBstate = action;
+	}
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -750,6 +811,10 @@ int main(int argc, char **argv)
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetWindowSizeCallback(window, window_size_callback);
 	glfwSetScrollCallback(window, scroll_callback);
+	
+	//cursor and mouse handlers
+	glfwSetCursorPosCallback(window, onCursorPosChange);
+	glfwSetMouseButtonCallback(window, onMouseBtnEvent);
 	// Initialize GLEW
 	if (glewInit() != GLEW_OK) {
 		fprintf(stderr, "Failed to initialize GLEW\n");
@@ -761,63 +826,99 @@ int main(int argc, char **argv)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+<<<<<<< HEAD
     
     char cCurrentPath[FILENAME_MAX];
     getcwd(cCurrentPath, sizeof(cCurrentPath));
     printf("Working directory: %s\n", cCurrentPath);
     
 	loadShapes("models/bunny.obj");
+=======
+
+>>>>>>> origin/master
 //	loadrobot("sphere.obj");
 	loadRobot("models/cube.obj");
 	initGL();
-	initBunnyShape();
+//	initBunnyShape();
 	initRobot();
-	initRobots();
+	//initRobots();
 	installShaders("shaders/vert.glsl", "shaders/frag.glsl");
+	//currentCamera = new Camera(glm::vec3(0, 0, 0));
 	initBunnies();
 	initGround();
 
 	glClearColor(0.6f, 0.6f, 0.8f, 1.0f);
 
 
+
+	
+	ObjectRenderer *tempRenderer;
+	
+	for (int i = 0; i < NUM_ROBOTS; i++) {
+		tempRenderer = new ObjectRenderer("models/face.obj", h_uModelMatrix, h_aPosition, h_aNormal);
+		physicsEngine = new GameObjectSimplePhysics();
+		allObjects.push_back(new GameObject(getNewPosition(allObjects, tempRenderer->getRadius()), physicsEngine, tempRenderer));
+	}
+	
+	physicsEngine = new GameObjectSimplePhysics();
+	objectRenderer = new ObjectRenderer("models/bunny.obj", h_uModelMatrix, h_aPosition, h_aNormal);
+	player = new GameObject(glm::vec3(0, 0, 0), physicsEngine, objectRenderer);
+	allObjects.push_back(player);
+	
+	
+	double lastTime = glfwGetTime();
+	int nbFrames = 0;
+
 	do{
-		moveAllObjects();
+		// Measure speed
+		double currentTime = glfwGetTime();
+		nbFrames++;
+		if (currentTime - lastTime >= 1.0){ // If last prinf() was more than 1 sec ago
+			// printf and reset timer
+//			printf("%f ms/frame\n", 1000.0 / double(nbFrames));
+			printf("%f frames per second\n", nbFrames / (currentTime - lastTime));
+			nbFrames = 0;
+			lastTime += 1.0;
+		}
+
+
+		for (int i = 0; i < allObjects.size(); i++) {
+			allObjects[i]->update();
+		}
+		//player->update();
 		drawGL();
 		// Swap buffers
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+		
+		currentCamera.setFocus(player->pos);
+		glm::vec3 movement = glm::normalize(player->pos - currentCamera.getEyePosition());
+		printf("Camera to focus vector is <%f, %f, %f>\n",
+			   movement.x, movement.y, movement.z);
 
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-			cameraZoom += lookAt * 0.1f;
+		GLint wState = glfwGetKey(window, GLFW_KEY_W);
+		GLint sState = glfwGetKey(window, GLFW_KEY_S);
+		
+		if (wState == GLFW_PRESS) {
+			movement *= SPEED;
 		}
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-			cameraZoom -= lookAt * 0.1f;
+		else if (sState == GLFW_PRESS) {
+			movement *= SPEED;
+			movement *= -1;
 		}
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-			glm::vec3 cross = glm::cross(lookAt, glm::vec3(0, 1, 0));
-			cameraZoom -= cross * 0.1f;
+		else {
+			movement = vec3(0.0);
 		}
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			glm::vec3 lookAt = glm::vec3(cos(cameraRotate.x) * cos(cameraRotate.y), sin(cameraRotate.x), cos(cameraRotate.x) * cos(90.0 - cameraRotate.y));
-			glm::vec3 cross = glm::cross(lookAt, glm::vec3(0, 1, 0));
-			cameraZoom += cross * 0.1f;
-		}
+		movement.y = 0.0;
+		player->setVelocity(movement);
+		
+		
 		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
 			g_light.x += 0.15;
 		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
 			g_light.x -= 0.15;
-		if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
-			cameraRotate.x += 0.01;
-		if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
-			cameraRotate.x -= 0.01;
-		if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
-			cameraRotate.y -= 0.01;
-		if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
-			cameraRotate.y += 0.01;
-		cameraRotate.x = glm::max(glm::min(cameraRotate.x, 1.0f), -1.0f);
+		
+			
 
 
 	} // Check if the ESC key was pressed or the window was closed
