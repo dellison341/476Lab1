@@ -10,6 +10,7 @@ GameObject::GameObject(glm::vec3 position, GameObjectSimplePhysics *physics, Obj
 	pos = position;
 	radius = renderer->getRadius();
 	vel = glm::vec3(0.01f, 0, 0.01f);
+	material = 4;
 	physicsEngine = physics;
 	objectRenderer = renderer;
 }
@@ -32,4 +33,8 @@ ObjectRenderer * GameObject::getRenderer() {
 
 void GameObject::setVelocity(glm::vec3 velocity) {
 	vel = velocity;
+}
+
+void GameObject::setMaterial(int mat) {
+	material = mat;
 }

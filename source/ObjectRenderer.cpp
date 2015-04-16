@@ -7,6 +7,10 @@ ObjectRenderer::ObjectRenderer(char *file, GLint modelMatrixHandle, GLint positi
 	h_uModelMatrixHandle = modelMatrixHandle;
 	h_aPositionHandle = positionHandle;
 	h_aNormalHandle = normalHandle;
+	h_uMatAmbHandle = 0;
+	h_uMatDifHandle = 0;
+	h_uMatShineHandle = 0;
+	h_uMatSpecHandle = 0;
 	posBufObject = 0;
 	indBufObject = 0;
 	norBufObject = 0;
@@ -37,6 +41,7 @@ void ObjectRenderer::begin() {
 }
 
 void ObjectRenderer::render(GameObject *gameObject) {
+	setMaterial(gameObject->material);
 	int nIndices = (int)(objectShapes)[0].mesh.indices.size();
 	glm::mat4 Trans = glm::translate(glm::mat4(1.0f), gameObject->pos);
 	glm::mat4 RotateY = glm::rotate(glm::mat4(1.0f), gameObject->rotY, glm::vec3(0.0f, 1, 0));
@@ -210,4 +215,50 @@ void ObjectRenderer::loadObjShapes(const std::string &objFile)
 
 float ObjectRenderer::getRadius() {
 	return boundRadius;
+}
+
+void ObjectRenderer::setMaterialHandles(GLint matAmbHandle, GLint matDifHandle, GLint matSpecHandle, GLint matShineHandle){
+	h_uMatAmbHandle = matAmbHandle;
+	h_uMatDifHandle = matDifHandle;
+	h_uMatSpecHandle = matSpecHandle;
+	h_uMatShineHandle = matShineHandle;
+}
+
+
+
+/* helper function to send materials to the shader - you must create your own */
+void ObjectRenderer::setMaterial(int i) {
+//	glUseProgram(ShadeProg);
+	switch (i) {
+	case 0: //shiny blue plastic
+		glUniform3f(h_uMatAmbHandle, 0.02, 0.02, 0.1);
+		glUniform3f(h_uMatDifHandle, 0.0, 0.08, 0.5);
+		glUniform3f(h_uMatSpecHandle, 0.14, 0.14, 0.4);
+		glUniform1f(h_uMatShineHandle, 120.0);
+		break;
+	case 1: // flat grey
+		glUniform3f(h_uMatAmbHandle, 0.13, 0.13, 0.14);
+		glUniform3f(h_uMatDifHandle, 0.3, 0.3, 0.4);
+		glUniform3f(h_uMatSpecHandle, 0.3, 0.3, 0.4);
+		glUniform1f(h_uMatShineHandle, 4.0);
+		break;
+	case 2: //gold
+		glUniform3f(h_uMatAmbHandle, 0.09, 0.07, 0.08);
+		glUniform3f(h_uMatDifHandle, 0.91, 0.782, 0.82);
+		glUniform3f(h_uMatSpecHandle, 1.0, 0.913, 0.8);
+		glUniform1f(h_uMatShineHandle, 200.0);
+		break;
+	case 3: //something
+		glUniform3f(h_uMatAmbHandle, 0.09, 0.07, 0.08);
+		glUniform3f(h_uMatDifHandle, 0.31, 0.982, 0.12);
+		glUniform3f(h_uMatSpecHandle, 1.0, 0.613, 0.9);
+		glUniform1f(h_uMatShineHandle, 20.0);
+		break;
+	case 4: //something
+		glUniform3f(h_uMatAmbHandle, 0.09, 0.07, 0.08);
+		glUniform3f(h_uMatDifHandle, 0.41, 0.782, 0.82);
+		glUniform3f(h_uMatSpecHandle, 1.0, 0.913, 0.0);
+		glUniform1f(h_uMatShineHandle, 100.0);
+		break;
+	}
 }

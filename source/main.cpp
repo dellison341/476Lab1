@@ -846,6 +846,7 @@ int main(int argc, char **argv)
 	ObjectRenderer *tempRenderer;
 
 	tempRenderer = new ObjectRenderer("models/face.obj", h_uModelMatrix, h_aPosition, h_aNormal);
+	tempRenderer->setMaterialHandles(h_uMatAmb, h_uMatDif, h_uMatSpec, h_uMatShine);
 	physicsEngine = new GameObjectSimplePhysics();
 	
 	for (int i = 0; i < NUM_ROBOTS; i++) {
@@ -854,6 +855,7 @@ int main(int argc, char **argv)
 	
 	physicsEngine = new GameObjectSimplePhysics();
 	objectRenderer = new ObjectRenderer("models/bunny.obj", h_uModelMatrix, h_aPosition, h_aNormal);
+	objectRenderer->setMaterialHandles(h_uMatAmb, h_uMatDif, h_uMatSpec, h_uMatShine);
 	player = new GameObject(glm::vec3(0, 0, 0), physicsEngine, objectRenderer);
 	allObjects.push_back(player);
 	

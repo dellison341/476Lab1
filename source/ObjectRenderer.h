@@ -23,6 +23,8 @@ public:
 	void loadObjShapes(const std::string &objFile);
 	void resizeObj(std::vector<tinyobj::shape_t> &shapes);
 	void initObjShape();
+	void setMaterialHandles(GLint matAmbHandle, GLint matDifHandle, GLint matSpecHandle, GLint matShineHandle);
+	void setMaterial(int i);
 	void init();
 	void begin();
 	float getRadius();
@@ -31,6 +33,11 @@ private:
 	GLuint posBufObject;
 	GLuint norBufObject;
 	GLuint indBufObject;
+
+	GLint h_uMatAmbHandle;
+	GLint h_uMatDifHandle;
+	GLint h_uMatSpecHandle;
+	GLint h_uMatShineHandle;
 	
 	std::vector<tinyobj::shape_t> objectShapes;
 	std::vector<tinyobj::material_t> objectMaterials;
