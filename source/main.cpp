@@ -844,10 +844,11 @@ int main(int argc, char **argv)
 
 	
 	ObjectRenderer *tempRenderer;
+
+	tempRenderer = new ObjectRenderer("models/face.obj", h_uModelMatrix, h_aPosition, h_aNormal);
+	physicsEngine = new GameObjectSimplePhysics();
 	
 	for (int i = 0; i < NUM_ROBOTS; i++) {
-		tempRenderer = new ObjectRenderer("models/face.obj", h_uModelMatrix, h_aPosition, h_aNormal);
-		physicsEngine = new GameObjectSimplePhysics();
 		allObjects.push_back(new GameObject(getNewPosition(allObjects, tempRenderer->getRadius()), physicsEngine, tempRenderer));
 	}
 	
@@ -866,10 +867,14 @@ int main(int argc, char **argv)
 		nbFrames++;
 		if (currentTime - lastTime >= 1.0){ // If last prinf() was more than 1 sec ago
 			// printf and reset timer
-//			printf("%f ms/frame\n", 1000.0 / double(nbFrames));
+			//			printf("%f ms/frame\n", 1000.0 / double(nbFrames));
 			printf("%f frames per second\n", nbFrames / (currentTime - lastTime));
 			nbFrames = 0;
 			lastTime += 1.0;
+
+			if (allObjects.size() < 30) {
+				allObjects.push_back(new GameObject(getNewPosition(allObjects, tempRenderer->getRadius()), physicsEngine, tempRenderer));
+			}
 		}
 
 
