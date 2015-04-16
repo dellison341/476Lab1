@@ -12,10 +12,13 @@
 //#include "GameObjectSimplePhysics.h"
 //#include "ObjectRenderer.h"
 
+class GameObjectSimplePhysics;
+class ObjectRenderer;
+
 class GameObject {
 public:
 
-	GameObject(glm::vec3 position/*, GameObjectSimplePhysics *physics, ObjectRenderer *renderer*/);
+	GameObject(glm::vec3 position, GameObjectSimplePhysics *physics, ObjectRenderer *renderer);
 	void update();
 	void render();
 
@@ -24,8 +27,8 @@ public:
 	float rotY;
 
 private:
-//	GameObjectSimplePhysics *physicsEngine;
-//	ObjectRenderer *objectRenderer;
+	GameObjectSimplePhysics *physicsEngine;
+	ObjectRenderer *objectRenderer;
 };
 
 #endif

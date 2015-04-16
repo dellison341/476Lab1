@@ -27,8 +27,8 @@
 GLFWwindow* window;
 using namespace std;
 
-vector<tinyobj::shape_t> shapes;
-vector<tinyobj::material_t> materials;
+//vector<tinyobj::shape_t> shapes;
+//vector<tinyobj::material_t> materials;
 
 vector<tinyobj::shape_t> robotShapes;
 vector<tinyobj::material_t> robotMaterials;
@@ -187,6 +187,7 @@ void SetLight() {
 
 //Given a vector of shapes which has already been read from an obj file
 // resize all vertices to the range [-1, 1]
+/*
 void resize_obj(std::vector<tinyobj::shape_t> &shapes){
 	float minX, minY, minZ;
 	float maxX, maxY, maxZ;
@@ -246,9 +247,10 @@ void resize_obj(std::vector<tinyobj::shape_t> &shapes){
 		}
 	}
 }
+*/
 
 
-
+/*
 void loadShapes(const string &objFile)
 {
 	string err = tinyobj::LoadObj(shapes, materials, objFile.c_str());
@@ -257,6 +259,7 @@ void loadShapes(const string &objFile)
 	}
 	resize_obj(shapes);
 }
+*/
 
 
 void loadRobot(const string &objFile)
@@ -672,7 +675,7 @@ void drawGL()
 //	}
 
 	objectRenderer->begin();
-	objectRenderer->render(object);
+	object->render();
 	objectRenderer->end();
 
 	if (theta >= 45 || theta <= -45) {
@@ -774,7 +777,7 @@ int main(int argc, char **argv)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	loadShapes("models/bunny.obj");
+//	loadShapes("models/bunny.obj");
 //	loadrobot("sphere.obj");
 	loadRobot("models/cube.obj");
 	initGL();
@@ -789,7 +792,7 @@ int main(int argc, char **argv)
 
 	physicsEngine = new GameObjectSimplePhysics();
 	objectRenderer = new ObjectRenderer("models/bunny.obj", h_uModelMatrix, h_aPosition, h_aNormal);
-	object = new GameObject(glm::vec3(0, 0, 0)/*, physicsEngine, objectRenderer*/);
+	object = new GameObject(glm::vec3(0, 0, 0), physicsEngine, objectRenderer);
 
 	double lastTime = glfwGetTime();
 	int nbFrames = 0;
@@ -808,7 +811,7 @@ int main(int argc, char **argv)
 
 
 		moveAllObjects();
-		physicsEngine->update(object);
+		object->update();
 		drawGL();
 		// Swap buffers
 		glfwSwapBuffers(window);
